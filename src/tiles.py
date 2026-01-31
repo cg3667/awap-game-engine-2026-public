@@ -134,8 +134,6 @@ class Shop(Interactable):
     
     def to_dict(self):
        d = super().to_dict()
+       #scooby doo
        #shop has all available items for sale (all food, pans, plates)
        return d
-
-    #yes
-    #wow
