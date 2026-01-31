@@ -136,3 +136,5 @@ class Shop(Interactable):
        d = super().to_dict()
        #shop has all available items for sale (all food, pans, plates)
        return d
+
+    #yes
