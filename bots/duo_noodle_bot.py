@@ -126,10 +126,15 @@ class BotPlayer:
             self.current_order = best_order
             self.found_order = True
             self.ingredients = set(current_order["required"])
+
+            if can_switch_maps():
+                switch_maps
+
                     
                     
         #state 3: buy the plate
         elif self.state == 3:
+
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
@@ -220,7 +225,7 @@ class BotPlayer:
             if controller.get_map().is_tile_walkable(nx, ny):
                 controller.move(bot_id, dx, dy)
                 return
-        #buy egg
+        #State 11: buy egg
         elif self.state == 11: 
             self.ingredients.remove(0)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
@@ -229,8 +234,8 @@ class BotPlayer:
                 if controller.get_team_money() >= FoodType.EGG.buy_cost:
                     if controller.buy(bot_id, FoodType.EGG, sx, sy):
                         self.state = 12 # reroute to cook the egg
-
-        elif self.state == 12: # put egg on stove to cook
+        # State 12: put egg on stove to cook
+        elif self.state == 12: 
             if self.move_towards(controller, bot_id, kx, ky):
                 if controller.place(bot_id, kx, ky):
                     self.state = 9 # reroute to wait and see if food is cooked
@@ -312,6 +317,24 @@ class BotPlayer:
                 if controller.submit(bot_id, ux, uy):
                     self.state = 0
 
+        #SABOTAGE
+        elif self.state == 30:
+            tile = controller.get_tile(controller.get_team(), kx, ky)
+            if tile and isinstance(tile.item, Plate): #finding a plate and attempting to submit it (prob will be an empty plate ahaha
+                self.state = 22
+            else:
+                self.state = 1 # need to edit
+
+        
+
+
+# get_switch_info() -> Dict[str, Any]
+# Provides information about the switch, including turn, switch duration, and the switch status of both teams.
+# can_switch_maps() -> bool
+# Returns True if the user can switch into the enemy map, False otherwise.Can switch during any time, but can only switch once.
+# switch_maps() -> bool
+# Immediately teleports all bots on the user’s team into the enemy map with non-interferring spawns. Does not consume a bot’s move for that turn. Can only be called once per game per team. 
+# Returns True if successful, false otherwise. 
 
 
 
