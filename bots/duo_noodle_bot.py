@@ -220,8 +220,8 @@ class BotPlayer:
             if controller.get_map().is_tile_walkable(nx, ny):
                 controller.move(bot_id, dx, dy)
                 return
-
-        elif self.state == 11: # buy egg
+        #buy egg
+        elif self.state == 11: 
             self.ingredients.remove(0)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
@@ -235,7 +235,7 @@ class BotPlayer:
                 if controller.place(bot_id, kx, ky):
                     self.state = 9 # reroute to wait and see if food is cooked
 
-        elif self.state == 11: # buy onion
+        elif self.state == 13: # buy onion
             self.ingredients.remove(1)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
@@ -244,19 +244,17 @@ class BotPlayer:
                     if controller.buy(bot_id, FoodType.ONION, sx, sy):
                         self.state = 12 # reroute to chop the onion
 
-        elif self.state == 12: # chop onion by putting it on counter
+        elif self.state == 14: # Putting onion on counter
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.place(bot_id, cx, cy):
                     self.state = 13 # reroute to chop onion
 
-        elif self.state == 13: # chop onion
+        elif self.state == 15: # chop onion
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.chop(bot_id, cx, cy):
                     self.state = 8 # reroute to add the chopped onion to plate
-
             
-            
-        elif self.state == 11: # buy meat
+        elif self.state == 16: # buy meat
             self.ingredients.remove(2)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
@@ -265,26 +263,26 @@ class BotPlayer:
                     if controller.buy(bot_id, FoodType.MEAT, sx, sy):
                         self.state = 12 # reroute to put meat on counter to chop
 
-        #state 12: put meat on counter
-        elif self.state == 12:
+        #state 17: put meat on counter
+        elif self.state == 17:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.place(bot_id, cx, cy):
                     self.state = 13 # reroute to chop meat
 
-        #state 13: chop meat
-        elif self.state == 13:
+        #state 18: chop meat
+        elif self.state == 18:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.chop(bot_id, cx, cy):
                     self.state = 14
 
-        #state 14: pickup meat
-        elif self.state == 14:
+        #state 19: pickup meat
+        elif self.state == 19:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.pickup(bot_id, cx, cy):
                     self.state = 15
 
-        #state 15: put meat on counter and begin cook
-        elif self.state == 15:
+        #state 20: put meat on counter and begin cook
+        elif self.state == 20:
             if self.move_towards(controller, bot_id, kx, ky):
                 # Using the NEW logic where place() starts cooking automatically
                 if controller.place(bot_id, kx, ky):
