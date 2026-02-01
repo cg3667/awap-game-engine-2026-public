@@ -161,9 +161,9 @@ class BotPlayer:
         #state 7: figure out what things to add
         elif self.state == 7:
             if 0 in self.ingredients: # ingredients includes egg
-                self.state = 8
-            elif 1 in self.ingredients: # ingredients includes onion
                 self.state = 9
+            elif 1 in self.ingredients: # ingredients includes onion
+                self.state = 11
             elif 2 in self.ingredients: # ingredients includes meat
                 self.state = 10
             elif 3 in self.ingredients: # ingredients includes noodles
@@ -173,19 +173,67 @@ class BotPlayer:
             else:
                 self.state = # INCOMPLETE CHECK HERE HIHIHIHIH
 
-        elif self.state == 8: # buy egg
+        elif self.state == 8: # add the food item to plate
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.add_food_to_plate(bot_id, cx, cy):
+                    self.state = 7 # return to figure out what else to add
+
+        #state 9: wait and take cooked item
+        elif self.state == 9:
+            if self.move_towards(controller, bot_id, kx, ky):
+                tile = controller.get_tile(controller.get_team(), kx, ky)
+                if tile and isinstance(tile.item, Pan) and tile.item.food:
+                    food = tile.item.food
+                    if food.cooked_stage == 1:
+                        if controller.take_from_pan(bot_id, kx, ky):
+                            self.state = 8
+                    elif food.cooked_stage == 2:
+                        #trash
+                        if controller.take_from_pan(bot_id, kx, ky):
+                            self.state = 10
+                else:
+                    if bot_info.get('holding'):
+                        #trash
+                        self.state = 10
+                    else:
+                        #restart
+                        self.state = 7
+
+        #state 10: trash
+        elif self.state == 10:
+            trash_pos = self.find_nearest_tile(controller, bx, by, "TRASH")
+            if not trash_pos: return
+            tx, ty = trash_pos
+            if self.move_towards(controller, bot_id, tx, ty):
+                if controller.trash(bot_id, tx, ty):
+                    self.state = 2 #restart
+        for i in range(1, len(my_bots)):
+            self.my_bot_id = my_bots[i]
+            bot_id = self.my_bot_id
+
+            bot_info = controller.get_bot_state(bot_id)
+            bx, by = bot_info['x'], bot_info['y']
+
+            dx = random.choice([-1, 1])
+            dy = random.choice([-1, 1])
+            nx,ny = bx + dx, by + dy
+            if controller.get_map().is_tile_walkable(nx, ny):
+                controller.move(bot_id, dx, dy)
+                return
+
+        elif self.state == 11: # buy egg
             self.ingredients.remove(0)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
                 if controller.get_team_money() >= FoodType.EGG.buy_cost:
                     if controller.buy(bot_id, FoodType.EGG, sx, sy):
-                        self.state = 9 # reroute to cook the egg
+                        self.state = 12 # reroute to cook the egg
 
-        elif self.state == 9: # cook the egg
+        elif self.state == 12: # put egg on stove to cook
             if self.move_towards(controller, bot_id, kx, ky):
                 if controller.place(bot_id, kx, ky):
-                    self.state = 7 # add egg to noodles
+                    self.state = 9 # reroute to wait and see if food is cooked
 
         elif self.state == 11: # buy onion
             self.ingredients.remove(1)
@@ -201,13 +249,11 @@ class BotPlayer:
                 if controller.place(bot_id, cx, cy):
                     self.state = 13 # reroute to chop onion
 
-        #state 13: chop onion
-        elif self.state == 13:
+        elif self.state == 13: # chop onion
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.chop(bot_id, cx, cy):
-                    self.state = 14
+                    self.state = 8 # reroute to add the chopped onion to plate
 
-        elif self.state == 14: # add the finished ingredient to the noodles
             
             
         elif self.state == 11: # buy meat
