@@ -187,9 +187,6 @@ class BotPlayer:
                 if controller.place(bot_id, kx, ky):
                     self.state = 7 # add egg to noodles
 
-        elif self.state == 10: # cooking time
-            self.state = 7
-
         elif self.state == 11: # buy onion
             self.ingredients.remove(1)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
