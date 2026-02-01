@@ -12,8 +12,10 @@ class BotPlayer:
         self.assembly_counter = None 
         self.cooker_loc = None
         self.my_bot_id = None
-        
+        self.found_order = False
+        self.current_order = None
         self.state = 0
+        self.ingredients = None
 
     def get_bfs_path(self, controller: RobotController, start: Tuple[int, int], target_predicate) -> Optional[Tuple[int, int]]:
         queue = deque([(start, [])]) 
@@ -69,7 +71,7 @@ class BotPlayer:
     
         self.my_bot_id = my_bots[0]
         bot_id = self.my_bot_id
-        
+
         bot_info = controller.get_bot_state(bot_id)
         bx, by = bot_info['x'], bot_info['y']
 
@@ -85,7 +87,7 @@ class BotPlayer:
 
         if self.state in [2, 8, 10] and bot_info.get('holding'):
             self.state = 16
-
+        
         #state 0: init + checking the pan
         if self.state == 0:
             tile = controller.get_tile(controller.get_team(), kx, ky)
@@ -108,40 +110,197 @@ class BotPlayer:
                 if self.move_towards(controller, bot_id, sx, sy):
                     if controller.get_team_money() >= ShopCosts.PAN.buy_cost:
                         controller.buy(bot_id, ShopCosts.PAN, sx, sy)
+        #state 2: check what order to do
+        elif self.state == 2 and self.found_order == False:
+            best_order = None
+            current_orders = get_orders(controller.get_team())
+            for order in current_orders:
+                if order["is_active"] == False:
+                    continue
+                if order["expires_turn"] - get_turn() < order["required"].len():
+                    continue
+                if best_order == None:
+                    best_order = order
+                if order["reward"] > best_order["reward"]:
+                    best_order = order
+            self.current_order = best_order
+            self.found_order = True
+            self.ingredients = set(current_order["required"])
+                    
+                    
+        #state 3: buy the plate
+        elif self.state == 3:
+            shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
+            sx, sy = shop_pos
+            if self.move_towards(controller, bot_id, sx, sy):
+                if controller.get_team_money() >= ShopCosts.PLATE.buy_cost:
+                    if controller.buy(bot_id, ShopCosts.PLATE, sx, sy):
+                        self.state = 4
 
-        #state 2: buy meat
-        elif self.state == 2:
+        #state 4: put the plate on the counter
+        elif self.state == 4:
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.place(bot_id, cx, cy):
+                    self.state = 5
+
+        #state 5: buy noodle
+        elif self.state == 5:
+            shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
+            sx, sy = shop_pos
+            if self.move_towards(controller, bot_id, sx, sy):
+                if controller.get_team_money() >= FoodType.NOODLES.buy_cost:
+                    if controller.buy(bot_id, FoodType.NOODLES, sx, sy):
+                        self.state = 6
+
+        #state 6: add noodles to plate
+        elif self.state == 6:
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.add_food_to_plate(bot_id, cx, cy):
+                    self.state = 7
+
+        #state 7: figure out what things to add
+        elif self.state == 7:
+            if 0 in self.ingredients: # ingredients includes egg
+                self.state = 8
+            elif 1 in self.ingredients: # ingredients includes onion
+                self.state = 9
+            elif 2 in self.ingredients: # ingredients includes meat
+                self.state = 10
+            elif 3 in self.ingredients: # ingredients includes noodles
+                self.ingredients.discard(3)
+            elif 4 in self.ingredients: # ingredients includes sauce
+                self.state = 11
+            else:
+                self.state = # INCOMPLETE CHECK HERE HIHIHIHIH
+
+        elif self.state == 8: # buy egg
+            self.ingredients.remove(0)
+            shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
+            sx, sy = shop_pos
+            if self.move_towards(controller, bot_id, sx, sy):
+                if controller.get_team_money() >= FoodType.EGG.buy_cost:
+                    if controller.buy(bot_id, FoodType.EGG, sx, sy):
+                        self.state = 9 # reroute to cook the egg
+
+        elif self.state == 9: # cook the egg
+            if self.move_towards(controller, bot_id, kx, ky):
+                if controller.place(bot_id, kx, ky):
+                    self.state = 7 # add egg to noodles
+
+        elif self.state == 10: # cooking time
+            self.state = 7
+
+        elif self.state == 11: # buy onion
+            self.ingredients.remove(1)
+            shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
+            sx, sy = shop_pos
+            if self.move_towards(controller, bot_id, sx, sy):
+                if controller.get_team_money() >= FoodType.ONION.buy_cost:
+                    if controller.buy(bot_id, FoodType.ONION, sx, sy):
+                        self.state = 12 # reroute to chop the onion
+
+        elif self.state == 12: # chop onion by putting it on counter
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.place(bot_id, cx, cy):
+                    self.state = 13 # reroute to chop onion
+
+        #state 13: chop onion
+        elif self.state == 13:
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.chop(bot_id, cx, cy):
+                    self.state = 14
+
+        elif self.state == 14: # add the finished ingredient to the noodles
+            
+            
+        elif self.state == 11: # buy meat
+            self.ingredients.remove(2)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
                 if controller.get_team_money() >= FoodType.MEAT.buy_cost:
                     if controller.buy(bot_id, FoodType.MEAT, sx, sy):
-                        self.state = 3
+                        self.state = 12 # reroute to put meat on counter to chop
 
-        #state 3: put meat on counter
-        elif self.state == 3:
+        #state 12: put meat on counter
+        elif self.state == 12:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.place(bot_id, cx, cy):
-                    self.state = 4
+                    self.state = 13 # reroute to chop meat
 
-        #state 4: chop meat
-        elif self.state == 4:
+        #state 13: chop meat
+        elif self.state == 13:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.chop(bot_id, cx, cy):
-                    self.state = 5
+                    self.state = 14
 
-        #state 5: pickup meat
-        elif self.state == 5:
+        #state 14: pickup meat
+        elif self.state == 14:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.pickup(bot_id, cx, cy):
-                    self.state = 6
+                    self.state = 15
 
-        #state 6: put meat on counter
-        elif self.state == 6:
+        #state 15: put meat on counter and begin cook
+        elif self.state == 15:
             if self.move_towards(controller, bot_id, kx, ky):
                 # Using the NEW logic where place() starts cooking automatically
                 if controller.place(bot_id, kx, ky):
-                    self.state = 8 # Skip state 7
+                    self.state = 7 # Skip state 10
+
+
+        #state 12: wait and take meat
+        elif self.state == 12:
+            if self.move_towards(controller, bot_id, kx, ky):
+                tile = controller.get_tile(controller.get_team(), kx, ky)
+                if tile and isinstance(tile.item, Pan) and tile.item.food:
+                    food = tile.item.food
+                    if food.cooked_stage == 1:
+                        if controller.take_from_pan(bot_id, kx, ky):
+                            self.state = 13
+                    elif food.cooked_stage == 2:
+
+                        #trash
+                        if controller.take_from_pan(bot_id, kx, ky):
+                            self.state = 16
+                else:
+                    if bot_info.get('holding'):
+                        #trash
+                        self.state = 16
+                    else:
+                        #restart
+                        self.state = 2
+
+        #state 13: add meat to plate
+        elif self.state == 13:
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.add_food_to_plate(bot_id, cx, cy):
+                    self.state = 14
+
+        #state 14: pick up the plate
+        elif self.state == 14:
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.pickup(bot_id, cx, cy):
+                    self.state = 15
+
+        #state 15: submit
+        elif self.state == 15:
+            submit_pos = self.find_nearest_tile(controller, bx, by, "SUBMIT")
+            ux, uy = submit_pos
+            if self.move_towards(controller, bot_id, ux, uy):
+                if controller.submit(bot_id, ux, uy):
+                    self.state = 0
+
+
+
+
+
+
+
+
+
+
+
+
 
         #state 7: start the cook, but is cooking so we just go
         elif self.state == 7:
