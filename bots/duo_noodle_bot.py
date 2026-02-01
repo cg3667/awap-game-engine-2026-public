@@ -281,7 +281,7 @@ class BotPlayer:
                 if controller.pickup(bot_id, cx, cy):
                     self.state = 15
 
-        #state 20: put meat on counter and begin cook
+        #state 20: put meat on stove and begin cook
         elif self.state == 20:
             if self.move_towards(controller, bot_id, kx, ky):
                 # Using the NEW logic where place() starts cooking automatically
@@ -330,22 +330,6 @@ class BotPlayer:
             if self.move_towards(controller, bot_id, ux, uy):
                 if controller.submit(bot_id, ux, uy):
                     self.state = 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-        #state 7: start the cook, but is cooking so we just go
-        elif self.state == 7:
-            self.state = 8
 
         #state 8: buy the plate
         elif self.state == 8:
