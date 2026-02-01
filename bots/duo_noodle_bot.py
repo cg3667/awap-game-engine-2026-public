@@ -161,17 +161,17 @@ class BotPlayer:
         #state 7: figure out what things to add
         elif self.state == 7:
             if 0 in self.ingredients: # ingredients includes egg
-                self.state = 9
-            elif 1 in self.ingredients: # ingredients includes onion
                 self.state = 11
+            elif 1 in self.ingredients: # ingredients includes onion
+                self.state = 13
             elif 2 in self.ingredients: # ingredients includes meat
-                self.state = 10
+                self.state = 16
             elif 3 in self.ingredients: # ingredients includes noodles
                 self.ingredients.discard(3)
             elif 4 in self.ingredients: # ingredients includes sauce
-                self.state = 11
+                self.state = 21
             else:
-                self.state = # INCOMPLETE CHECK HERE HIHIHIHIH
+                self.state = 22 # there is no more stuff to add - we are done
 
         elif self.state == 8: # add the food item to plate
             if self.move_towards(controller, bot_id, cx, cy):
@@ -261,32 +261,57 @@ class BotPlayer:
             if self.move_towards(controller, bot_id, sx, sy):
                 if controller.get_team_money(controller.get_team()) >= FoodType.MEAT.buy_cost:
                     if controller.buy(bot_id, FoodType.MEAT, sx, sy):
-                        self.state = 12 # reroute to put meat on counter to chop
+                        self.state = 17 # reroute to put meat on counter to chop
 
         #state 17: put meat on counter
         elif self.state == 17:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.place(bot_id, cx, cy):
-                    self.state = 13 # reroute to chop meat
+                    self.state = 18 # reroute to chop meat
 
         #state 18: chop meat
         elif self.state == 18:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.chop(bot_id, cx, cy):
-                    self.state = 14
+                    self.state = 19
 
         #state 19: pickup meat
         elif self.state == 19:
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.pickup(bot_id, cx, cy):
-                    self.state = 15
+                    self.state = 20
 
         #state 20: put meat on stove and begin cook
         elif self.state == 20:
             if self.move_towards(controller, bot_id, kx, ky):
                 # Using the NEW logic where place() starts cooking automatically
                 if controller.place(bot_id, kx, ky):
-                    self.state = 7 # Skip state 10
+                    self.state = 9 # reroute to wait around until it cooks
+
+        #state 21: buy sauce
+        elif self.state == 21:
+            shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
+            sx, sy = shop_pos
+            if self.move_towards(controller, bot_id, sx, sy):
+                if controller.get_team_money() >= FoodType.SAUCE.buy_cost:
+                    if controller.buy(bot_id, FoodType.SAUCE, sx, sy):
+                        self.state = 8 # add the sauce directly to the noodles
+
+        #state 22: pick up the plate
+        elif self.state == 22:
+            if self.move_towards(controller, bot_id, cx, cy):
+                if controller.pickup(bot_id, cx, cy):
+                    self.state = 23
+
+        # state 23: submit
+        elif self.state == 23:
+            submit_pos = self.find_nearest_tile(controller, bx, by, "SUBMIT")
+            ux, uy = submit_pos
+            if self.move_towards(controller, bot_id, ux, uy):
+                if controller.submit(bot_id, ux, uy):
+                    self.state = 0
+
+
 
 
         #state 12: wait and take meat
