@@ -11,6 +11,8 @@ class BotPlayer:
         self.map = map_copy
         self.assembly_counter = None 
         self.cooker_loc = None
+        self.sink_loc = None
+        self.sink_table_loc = None
         self.my_bot_id = None
         self.found_order = False
         self.current_order = None
@@ -79,14 +81,20 @@ class BotPlayer:
             self.assembly_counter = self.find_nearest_tile(controller, bx, by, "COUNTER")
         if self.cooker_loc is None:
             self.cooker_loc = self.find_nearest_tile(controller, bx, by, "COOKER")
+        if self.sink_loc is None:
+            self.sink_loc = self.find_nearest_tile(controller, bx, by, "SINK")
+        if self.sink_table_loc is None:
+            self.sink_table_loc = self.find_nearest_tile(controller, bx, by, "SINKTABLE")
 
-        if not self.assembly_counter or not self.cooker_loc: return
+        if not self.assembly_counter or not self.cooker_loc or not self.sink_loc or not self.sink_table_loc: return
 
         cx, cy = self.assembly_counter
         kx, ky = self.cooker_loc
+        sx, sy = self.sink_loc
+        stx, sty = self.sink_table_loc
 
-        if self.state in [2, 8, 10] and bot_info.get('holding'):
-            self.state = 16
+        if self.state in [1, 3, 5, 11, 13, 16, 21] and bot_info.get('holding'):
+            self.state = 10
         
         #state 0: init + checking the pan
         if self.state == 0:
@@ -126,7 +134,15 @@ class BotPlayer:
             self.current_order = best_order
             self.found_order = True
             self.ingredients = set(current_order["required"])
-                    
+            self.state = 100
+
+        #state 100: move to sink table to check if we can take clean plate
+        elif self.state == 100:
+            if self.move_towards(controller, bot_id, sx, sy):
+                if take_clean_plate(controller, bot_id, stx, sty):
+                    self.state = 4
+                else:
+                    self.state = 3
                     
         #state 3: buy the plate
         elif self.state == 3:
@@ -198,7 +214,7 @@ class BotPlayer:
                     else:
                         #restart
                         self.state = 7
-
+        print(self.state)
         #state 10: trash
         elif self.state == 10:
             trash_pos = self.find_nearest_tile(controller, bx, by, "TRASH")
@@ -310,8 +326,22 @@ class BotPlayer:
             ux, uy = submit_pos
             if self.move_towards(controller, bot_id, ux, uy):
                 if controller.submit(bot_id, ux, uy):
-                    self.state = 0
+                    self.state = 24
 
+        # state 24: clean the plate and then look for the next order
+        elif self.state == 24:
+            if self.move_towards(controller, bot_id, sx, sy):
+                self.state = 25
 
+        #state 25: put the dirty plate into the sink
+        elif self.state == 25:
+            if put_dirty_plate_in_sink(controller, bot_id, sx, sy):
+                self.state = 26
 
-
+        #state 26: wash the dishes
+        elif self.state == 26:
+            if wash_sink(controller, bot_id, sx, sy):
+                self.found_order = False
+                self.current_order = None
+                self.state = 0
+                self.ingredients = None
