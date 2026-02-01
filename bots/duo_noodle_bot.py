@@ -322,12 +322,30 @@ class BotPlayer:
 
         # state 24: clean the plate and then look for the next order
         elif self.state == 24:
-            if self.move_towards(controller, bot_id, sx, sy):
-                self.state = 25
+            holding = bot_info.get('holding')
+    
+    # If we are already holding the plate (auto-returned by engine), skip pickup
+            if holding is not None:
+                sink_x, sink_y = self.sink_loc
+                if self.move_towards(controller, bot_id, sink_x, sink_y):
+                    self.state = 25
+            else:
+        # If hands are truly empty, try to pick up from the SUBMIT tile
+                submit_pos = self.find_nearest_tile(controller, bx, by, "SUBMIT")
+                if submit_pos:
+                    ux, uy = submit_pos
+                    if self.move_towards(controller, bot_id, ux, uy):
+                # If pickup fails, it might mean the plate is already gone/processed
+                        if not controller.pickup(bot_id, ux, uy):
+                    # Safety check: if nothing to pick up, maybe it's already clean?
+                            self.state = 0 
+                        else:
+                            self.state = 24
 
         #state 25: put the dirty plate into the sink
         elif self.state == 25:
-            if controller.put_dirty_plate_in_sink(bot_id, sx, sy):
+            sink_x, sink_y = self.sink_loc
+            if controller.put_dirty_plate_in_sink(bot_id, sink_x, sink_y):
                 self.state = 26
 
         #state 26: wash the dishes
