@@ -5,7 +5,7 @@ from typing import Tuple, Optional, List
 from game_constants import Team, TileType, FoodType, ShopCosts
 from robot_controller import RobotController
 from item import Pan, Plate, Food
-#helllo
+
 class BotPlayer:
     def __init__(self, map_copy):
         self.map = map_copy
@@ -118,39 +118,34 @@ class BotPlayer:
                 if self.move_towards(controller, bot_id, sx, sy):
                     if controller.get_team_money(controller.get_team()) >= ShopCosts.PAN.buy_cost:
                         controller.buy(bot_id, ShopCosts.PAN, sx, sy)
+
         #state 2: check what order to do
         elif self.state == 2 and self.found_order == False:
-            best_order = None
-            current_orders = get_orders(controller.get_team())
+            current_orders = controller.get_orders(controller.get_team())
             for order in current_orders:
                 if order["is_active"] == False:
                     continue
-                if order["expires_turn"] - get_turn() < order["required"].len():
+                if order["expires_turn"] - controller.get_turn() < len(order["required"]):
                     continue
-                if best_order == None:
-                    best_order = order
-                if order["reward"] > best_order["reward"]:
-                    best_order = order
-            self.current_order = best_order
+                if self.current_order  == None:
+                    self.current_order  = order
+                if order["reward"] > self.current_order["reward"]:
+                    self.current_order = order
             self.found_order = True
-            self.ingredients = set(current_order["required"])
-<<<<<<< HEAD
+            self.ingredients = set(self.current_order["required"])
             self.state = 100
 
         #state 100: move to sink table to check if we can take clean plate
         elif self.state == 100:
-            if self.move_towards(controller, bot_id, sx, sy):
-                if take_clean_plate(controller, bot_id, stx, sty):
+            if self.move_towards(controller, bot_id, stx, sty):
+                if controller.take_clean_plate(bot_id, stx, sty):
                     self.state = 4
                 else:
                     self.state = 3
-=======
+#chloe g edit
+            #if can_switch_maps():
+                #switch_maps
 
-            if can_switch_maps():
-                switch_maps
-
-                    
->>>>>>> 0661b3d63b78dd4b6468dc057fe61558d9b42137
                     
         #state 3: buy the plate
         elif self.state == 3:
@@ -158,7 +153,7 @@ class BotPlayer:
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
-                if controller.get_team_money() >= ShopCosts.PLATE.buy_cost:
+                if controller.get_team_money(controller.get_team()) >= ShopCosts.PLATE.buy_cost:
                     if controller.buy(bot_id, ShopCosts.PLATE, sx, sy):
                         self.state = 4
 
@@ -173,9 +168,10 @@ class BotPlayer:
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
-                if controller.get_team_money() >= FoodType.NOODLES.buy_cost:
+                if controller.get_team_money(controller.get_team()) >= FoodType.NOODLES.buy_cost:
                     if controller.buy(bot_id, FoodType.NOODLES, sx, sy):
                         self.state = 6
+                        self.ingredients.discard(3)
 
         #state 6: add noodles to plate
         elif self.state == 6:
@@ -191,8 +187,6 @@ class BotPlayer:
                 self.state = 13
             elif 2 in self.ingredients: # ingredients includes meat
                 self.state = 16
-            elif 3 in self.ingredients: # ingredients includes noodles
-                self.ingredients.discard(3)
             elif 4 in self.ingredients: # ingredients includes sauce
                 self.state = 21
             else:
@@ -222,8 +216,8 @@ class BotPlayer:
                         self.state = 10
                     else:
                         #restart
-                        self.state = 7
-        print(self.state)
+                        self.state = 0
+
         #state 10: trash
         elif self.state == 10:
             trash_pos = self.find_nearest_tile(controller, bx, by, "TRASH")
@@ -232,28 +226,17 @@ class BotPlayer:
             if self.move_towards(controller, bot_id, tx, ty):
                 if controller.trash(bot_id, tx, ty):
                     self.state = 2 #restart
-        for i in range(1, len(my_bots)):
-            self.my_bot_id = my_bots[i]
-            bot_id = self.my_bot_id
-
-            bot_info = controller.get_bot_state(bot_id)
-            bx, by = bot_info['x'], bot_info['y']
-
-            dx = random.choice([-1, 1])
-            dy = random.choice([-1, 1])
-            nx,ny = bx + dx, by + dy
-            if controller.get_map().is_tile_walkable(nx, ny):
-                controller.move(bot_id, dx, dy)
-                return
+        
         #State 11: buy egg
         elif self.state == 11: 
-            self.ingredients.remove(0)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
-                if controller.get_team_money() >= FoodType.EGG.buy_cost:
+                if controller.get_team_money(controller.get_team()) >= FoodType.EGG.buy_cost:
                     if controller.buy(bot_id, FoodType.EGG, sx, sy):
                         self.state = 12 # reroute to cook the egg
+                        self.ingredients.remove(0)
+
         # State 12: put egg on stove to cook
         elif self.state == 12: 
             if self.move_towards(controller, bot_id, kx, ky):
@@ -261,18 +244,18 @@ class BotPlayer:
                     self.state = 9 # reroute to wait and see if food is cooked
 
         elif self.state == 13: # buy onion
-            self.ingredients.remove(1)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
-                if controller.get_team_money() >= FoodType.ONION.buy_cost:
+                if controller.get_team_money(controller.get_team()) >= FoodType.ONION.buy_cost:
                     if controller.buy(bot_id, FoodType.ONION, sx, sy):
-                        self.state = 12 # reroute to chop the onion
+                        self.state = 14 # reroute to chop the onion
+                        self.ingredients.remove(1)
 
         elif self.state == 14: # Putting onion on counter
             if self.move_towards(controller, bot_id, cx, cy):
                 if controller.place(bot_id, cx, cy):
-                    self.state = 13 # reroute to chop onion
+                    self.state = 15 # reroute to chop onion
 
         elif self.state == 15: # chop onion
             if self.move_towards(controller, bot_id, cx, cy):
@@ -280,13 +263,13 @@ class BotPlayer:
                     self.state = 8 # reroute to add the chopped onion to plate
             
         elif self.state == 16: # buy meat
-            self.ingredients.remove(2)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
                 if controller.get_team_money(controller.get_team()) >= FoodType.MEAT.buy_cost:
                     if controller.buy(bot_id, FoodType.MEAT, sx, sy):
                         self.state = 17 # reroute to put meat on counter to chop
+                        self.ingredients.remove(2)
 
         #state 17: put meat on counter
         elif self.state == 17:
@@ -315,13 +298,13 @@ class BotPlayer:
 
         #state 21: buy sauce
         elif self.state == 21:
-            self.ingredients.remove(4)
             shop_pos = self.find_nearest_tile(controller, bx, by, "SHOP")
             sx, sy = shop_pos
             if self.move_towards(controller, bot_id, sx, sy):
-                if controller.get_team_money() >= FoodType.SAUCE.buy_cost:
+                if controller.get_team_money(controller.get_team()) >= FoodType.SAUCE.buy_cost:
                     if controller.buy(bot_id, FoodType.SAUCE, sx, sy):
                         self.state = 8 # add the sauce directly to the noodles
+                        self.ingredients.remove(4)
 
         #state 22: pick up the plate
         elif self.state == 22:
@@ -335,30 +318,7 @@ class BotPlayer:
             ux, uy = submit_pos
             if self.move_towards(controller, bot_id, ux, uy):
                 if controller.submit(bot_id, ux, uy):
-<<<<<<< HEAD
                     self.state = 24
-=======
-                    self.state = 0
-
-        #SABOTAGE
-        elif self.state == 30:
-            tile = controller.get_tile(controller.get_team(), kx, ky)
-            if tile and isinstance(tile.item, Plate): #finding a plate and attempting to submit it (prob will be an empty plate ahaha
-                self.state = 22
-            else:
-                self.state = 1 # need to edit
-
-        
-
-
-# get_switch_info() -> Dict[str, Any]
-# Provides information about the switch, including turn, switch duration, and the switch status of both teams.
-# can_switch_maps() -> bool
-# Returns True if the user can switch into the enemy map, False otherwise.Can switch during any time, but can only switch once.
-# switch_maps() -> bool
-# Immediately teleports all bots on the user’s team into the enemy map with non-interferring spawns. Does not consume a bot’s move for that turn. Can only be called once per game per team. 
-# Returns True if successful, false otherwise. 
->>>>>>> 0661b3d63b78dd4b6468dc057fe61558d9b42137
 
         # state 24: clean the plate and then look for the next order
         elif self.state == 24:
@@ -367,13 +327,44 @@ class BotPlayer:
 
         #state 25: put the dirty plate into the sink
         elif self.state == 25:
-            if put_dirty_plate_in_sink(controller, bot_id, sx, sy):
+            if controller.put_dirty_plate_in_sink(bot_id, sx, sy):
                 self.state = 26
 
         #state 26: wash the dishes
         elif self.state == 26:
-            if wash_sink(controller, bot_id, sx, sy):
+            if controller.wash_sink(bot_id, sx, sy):
                 self.found_order = False
                 self.current_order = None
                 self.state = 0
                 self.ingredients = None
+
+        #SABOTAGE
+       # elif self.state == 30:
+           # tile = controller.get_tile(controller.get_team(), kx, ky)
+           # if tile and isinstance(tile.item, Plate): #finding a plate and attempting to submit it (prob will be an empty plate ahaha
+               # self.state = 22
+           # else:
+               # self.state = 1 # need to edit
+
+# get_switch_info() -> Dict[str, Any]
+# Provides information about the switch, including turn, switch duration, and the switch status of both teams.
+# can_switch_maps() -> bool
+# Returns True if the user can switch into the enemy map, False otherwise.Can switch during any time, but can only switch once.
+# switch_maps() -> bool
+# Immediately teleports all bots on the user’s team into the enemy map with non-interferring spawns. Does not consume a bot’s move for that turn. Can only be called once per game per team.
+# Returns True if successful, false otherwise.
+
+        
+        for i in range(1, len(my_bots)):
+            self.my_bot_id = my_bots[i]
+            bot_id = self.my_bot_id
+
+            bot_info = controller.get_bot_state(bot_id)
+            bx, by = bot_info['x'], bot_info['y']
+
+            dx = random.choice([-1, 1])
+            dy = random.choice([-1, 1])
+            nx,ny = bx + dx, by + dy
+            if controller.get_map(controller.get_team()).is_tile_walkable(nx, ny):
+                controller.move(bot_id, dx, dy)
+                return
